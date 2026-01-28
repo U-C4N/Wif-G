@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import sys
 import time
 import asyncio
@@ -40,7 +41,7 @@ class NetworkAnalyzerApp:
 ║   {Fore.WHITE}  /_/   \\_\\_| |_|\\__,_|_|\\__, /___\\___|_|                 {Fore.CYAN}║
 ║   {Fore.WHITE}                         |___/                            {Fore.CYAN}║
 ║                                                                ║
-║   {Fore.YELLOW}Wif-G - Network Security Analysis and Optimization Tool v1.0{Fore.CYAN}       ║
+║   {Fore.YELLOW}Network Security Analysis and Optimization Tool v1.0{Fore.CYAN}       ║
 ║                                                                ║
 ╚══════════════════════════════════════════════════════════════╝
 """
@@ -128,9 +129,7 @@ class NetworkAnalyzerApp:
         self._performance_tester = PerformanceTests(gateway=gateway)
         
         self.print_loading("Running latency tests")
-        latency_results = asyncio.get_event_loop().run_until_complete(
-            self._performance_tester.latency_test()
-        )
+        latency_results = asyncio.run(self._performance_tester.latency_test())
         self.print_done()
         
         print(f"\n  {Fore.WHITE}Latency Results:")
@@ -146,9 +145,7 @@ class NetworkAnalyzerApp:
                 print(f"  {Fore.CYAN}{result.target:<20} {Fore.RED}{'Unreachable':<12}")
         
         self.print_loading("Testing network jitter")
-        jitter_result = asyncio.get_event_loop().run_until_complete(
-            self._performance_tester.jitter_test()
-        )
+        jitter_result = asyncio.run(self._performance_tester.jitter_test())
         self.print_done()
         
         if jitter_result.jitter != -1:
@@ -164,9 +161,7 @@ class NetworkAnalyzerApp:
             print(f"\n  {Fore.WHITE}Jitter: {Fore.RED}Could not measure")
         
         self.print_loading("Testing packet loss")
-        packet_loss_result = asyncio.get_event_loop().run_until_complete(
-            self._performance_tester.packet_loss_test()
-        )
+        packet_loss_result = asyncio.run(self._performance_tester.packet_loss_test())
         self.print_done()
         
         loss_pct = packet_loss_result.loss_percentage
@@ -181,9 +176,7 @@ class NetworkAnalyzerApp:
             self.print_danger("Significant packet loss - network issues detected")
         
         self.print_loading("Estimating bandwidth")
-        bandwidth_result = asyncio.get_event_loop().run_until_complete(
-            self._performance_tester.bandwidth_estimate(test_duration=3.0)
-        )
+        bandwidth_result = asyncio.run(self._performance_tester.bandwidth_estimate(test_duration=3.0))
         self.print_done()
         
         if bandwidth_result.download_speed_mbps > 0:
