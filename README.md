@@ -309,17 +309,14 @@ graph TB
 
 ## 🎨 Screenshots
 
-### Network Scan Results
-![Network Scan](screenshots/network_scan.png)
-
 ### Port Scan with Risk Assessment
-![Port Scan](screenshots/port_scan.png)
+![Port Scan](screenshots/port.jpg)
 
 ### Security Analysis Report
-![Security Report](screenshots/security_report.png)
+![Security Report](screenshots/sec.jpg)
 
 ### Optimization Suggestions
-![Optimization](screenshots/optimization.png)
+![Optimization](screenshots/opt.jpg)
 
 ---
 
