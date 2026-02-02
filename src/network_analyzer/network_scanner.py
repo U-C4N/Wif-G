@@ -1,9 +1,13 @@
 import socket
 import subprocess
 import re
+import logging
+import platform
 from typing import Dict, List, Optional
 import psutil
 import netifaces
+
+logger = logging.getLogger(__name__)
 
 
 class NetworkScanner:
@@ -13,12 +17,13 @@ class NetworkScanner:
         self._local_ip: Optional[str] = None
         self._ssid: Optional[str] = None
         self._signal_strength: Optional[int] = None
-        
+        self._is_windows = platform.system() == 'Windows'
+
     def scan(self) -> None:
         self._scan_interfaces()
         self._scan_gateway()
         self._scan_wifi_info()
-        
+
     def _scan_interfaces(self) -> None:
         self._interfaces = {}
         for interface in netifaces.interfaces():
@@ -32,14 +37,18 @@ class NetworkScanner:
                 }
                 if ipv4_info.get('addr') and not ipv4_info['addr'].startswith('127.'):
                     self._local_ip = ipv4_info['addr']
-                    
+
     def _scan_gateway(self) -> None:
         gateways = netifaces.gateways()
         default_gw = gateways.get('default', {})
         if netifaces.AF_INET in default_gw:
             self._gateway = default_gw[netifaces.AF_INET][0]
-            
+
     def _scan_wifi_info(self) -> None:
+        if self._is_windows:
+            self._scan_wifi_info_windows()
+            return
+
         try:
             result = subprocess.run(
                 ['iwconfig'],
@@ -48,11 +57,11 @@ class NetworkScanner:
                 timeout=5
             )
             output = result.stdout + result.stderr
-            
+
             ssid_match = re.search(r'ESSID:"([^"]*)"', output)
             if ssid_match:
                 self._ssid = ssid_match.group(1)
-                
+
             signal_match = re.search(r'Signal level[=:](-?\d+)', output)
             if signal_match:
                 self._signal_strength = int(signal_match.group(1))
@@ -71,28 +80,50 @@ class NetworkScanner:
                             self._ssid = parts[1]
                             self._signal_strength = int(parts[2]) if parts[2].isdigit() else None
             except (subprocess.TimeoutExpired, FileNotFoundError):
-                pass
-                
+                logger.debug("Could not detect WiFi info via iwconfig or nmcli")
+
+    def _scan_wifi_info_windows(self) -> None:
+        try:
+            result = subprocess.run(
+                ['netsh', 'wlan', 'show', 'interfaces'],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            output = result.stdout
+
+            ssid_match = re.search(r'SSID\s*:\s*(.+)', output)
+            if ssid_match:
+                self._ssid = ssid_match.group(1).strip()
+
+            signal_match = re.search(r'Signal\s*:\s*(\d+)%', output)
+            if signal_match:
+                pct = int(signal_match.group(1))
+                # Convert percentage to approximate dBm
+                self._signal_strength = int((pct / 2) - 100)
+        except (subprocess.TimeoutExpired, FileNotFoundError, subprocess.SubprocessError) as e:
+            logger.debug("Could not detect WiFi info on Windows: %s", e)
+
     @property
     def interfaces(self) -> Dict:
         return self._interfaces
-        
+
     @property
     def gateway(self) -> Optional[str]:
         return self._gateway
-        
+
     @property
     def local_ip(self) -> Optional[str]:
         return self._local_ip
-        
+
     @property
     def ssid(self) -> Optional[str]:
         return self._ssid
-        
+
     @property
     def signal_strength(self) -> Optional[int]:
         return self._signal_strength
-        
+
     def get_network_stats(self) -> Dict:
         stats = psutil.net_io_counters()
         return {
@@ -105,7 +136,7 @@ class NetworkScanner:
             'drop_in': stats.dropin,
             'drop_out': stats.dropout
         }
-        
+
     def get_active_connections(self) -> List[Dict]:
         connections = []
         for conn in psutil.net_connections(kind='inet'):

@@ -371,7 +371,7 @@ Contributions are welcome! Here's how you can help:
 
 ```bash
 # Clone your fork
-git clone https://github.com/YOUR_USERNAME/Wif-G.git
+git clone https://github.com/U-C4N/Wif-G.git
 cd Wif-G
 
 # Create virtual environment

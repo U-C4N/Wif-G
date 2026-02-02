@@ -1,3 +1,4 @@
+import logging
 from typing import Dict, List, Optional, TYPE_CHECKING
 from dataclasses import dataclass
 from enum import Enum
@@ -8,6 +9,8 @@ from .dns_analyzer import DNSAnalyzer
 
 if TYPE_CHECKING:
     from .performance_tester import PerformanceTests, LatencyResult, PacketLossResult, JitterResult
+
+logger = logging.getLogger(__name__)
 
 
 class RiskLevel(Enum):
@@ -42,26 +45,26 @@ class SecurityAnalyzer:
         self._performance_results: Optional[Dict] = None
         self._issues: List[SecurityIssue] = []
         self._security_score: int = 100
-    
+
     def set_performance_results(self, results: Dict) -> None:
         self._performance_results = results
-        
+
     def analyze(self) -> None:
         self._issues = []
         self._security_score = 100
-        
+
         self._analyze_ports()
         self._analyze_dns()
         self._analyze_network()
         self._analyze_performance()
         self._calculate_score()
-        
+
     def _analyze_ports(self) -> None:
         dangerous_ports = self._port_scanner.get_dangerous_ports()
-        
+
         for port_info in dangerous_ports:
             severity = RiskLevel.CRITICAL if port_info.risk_level == 'critical' else RiskLevel.HIGH
-            
+
             self._issues.append(SecurityIssue(
                 category='Port Security',
                 title=f'Dangerous port open: {port_info.port} ({port_info.service})',
@@ -70,7 +73,7 @@ class SecurityAnalyzer:
                 recommendation=self._port_scanner.get_recommendation(port_info),
                 auto_fixable=False
             ))
-            
+
     def _analyze_dns(self) -> None:
         for warning in self._dns_analyzer.dns_warnings:
             self._issues.append(SecurityIssue(
@@ -81,7 +84,7 @@ class SecurityAnalyzer:
                 recommendation='Switch to a known public DNS provider (Cloudflare, Google)',
                 auto_fixable=True
             ))
-            
+
         dns_recs = self._dns_analyzer.get_dns_recommendations()
         for rec in dns_recs:
             if rec['type'] == 'warning':
@@ -93,10 +96,10 @@ class SecurityAnalyzer:
                     recommendation=rec['suggestion'],
                     auto_fixable=True
                 ))
-                
+
     def _analyze_network(self) -> None:
         stats = self._network_scanner.get_network_stats()
-        
+
         if stats['errors_in'] > 100 or stats['errors_out'] > 100:
             self._issues.append(SecurityIssue(
                 category='Network Health',
@@ -106,7 +109,7 @@ class SecurityAnalyzer:
                 recommendation='Check your network connection and cables',
                 auto_fixable=False
             ))
-            
+
         if stats['drop_in'] > 50 or stats['drop_out'] > 50:
             self._issues.append(SecurityIssue(
                 category='Network Health',
@@ -116,7 +119,7 @@ class SecurityAnalyzer:
                 recommendation='Restart your router or contact your ISP',
                 auto_fixable=False
             ))
-            
+
         signal = self._network_scanner.signal_strength
         if signal is not None and signal < -70:
             self._issues.append(SecurityIssue(
@@ -127,11 +130,11 @@ class SecurityAnalyzer:
                 recommendation='Move closer to the router or use a WiFi extender',
                 auto_fixable=False
             ))
-    
+
     def _analyze_performance(self) -> None:
         if not self._performance_results:
             return
-            
+
         latency_results = self._performance_results.get('latency', [])
         for result in latency_results:
             if result.avg_latency > 200 and result.avg_latency != -1:
@@ -152,7 +155,7 @@ class SecurityAnalyzer:
                     recommendation='Consider optimizing network settings',
                     auto_fixable=False
                 ))
-                
+
         jitter_result = self._performance_results.get('jitter')
         if jitter_result and jitter_result.jitter > 30 and jitter_result.jitter != -1:
             self._issues.append(SecurityIssue(
@@ -163,7 +166,7 @@ class SecurityAnalyzer:
                 recommendation='High jitter affects real-time applications, check network stability',
                 auto_fixable=False
             ))
-            
+
         packet_loss = self._performance_results.get('packet_loss')
         if packet_loss:
             if packet_loss.loss_percentage > 5:
@@ -184,7 +187,7 @@ class SecurityAnalyzer:
                     recommendation='Some packet loss detected - monitor for degradation',
                     auto_fixable=False
                 ))
-            
+
     def _calculate_score(self) -> None:
         deductions = {
             RiskLevel.LOW: 5,
@@ -192,29 +195,29 @@ class SecurityAnalyzer:
             RiskLevel.HIGH: 20,
             RiskLevel.CRITICAL: 30
         }
-        
+
         for issue in self._issues:
             self._security_score -= deductions[issue.risk_level]
-            
+
         self._security_score = max(0, self._security_score)
-        
+
     @property
     def issues(self) -> List[SecurityIssue]:
         return self._issues
-        
+
     @property
     def security_score(self) -> int:
         return self._security_score
-        
+
     def get_critical_issues(self) -> List[SecurityIssue]:
         return [i for i in self._issues if i.risk_level == RiskLevel.CRITICAL]
-        
+
     def get_high_risk_issues(self) -> List[SecurityIssue]:
         return [i for i in self._issues if i.risk_level in (RiskLevel.CRITICAL, RiskLevel.HIGH)]
-        
+
     def get_fixable_issues(self) -> List[SecurityIssue]:
         return [i for i in self._issues if i.auto_fixable]
-        
+
     def get_summary(self) -> Dict:
         return {
             'security_score': self._security_score,

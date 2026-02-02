@@ -1,0 +1,47 @@
+# Wif-G Configuration File
+# Copy this to config.yaml and customize as needed
+
+# Port Scanner Settings
+port_scanner:
+  max_workers: 50          # Number of concurrent threads (1-200)
+  timeout: 1.0             # Socket timeout in seconds
+  scan_type: common        # common, quick, or range
+  port_range_start: 1      # Start port for range scan
+  port_range_end: 1024     # End port for range scan
+
+# DNS Analyzer Settings
+dns_analyzer:
+  timeout: 2.0             # DNS query timeout in seconds
+  preferred_dns:
+    - 1.1.1.1              # Primary DNS
+    - 8.8.8.8              # Secondary DNS
+
+# Performance Test Settings
+performance:
+  latency_samples: 10      # Number of ping samples
+  jitter_samples: 20       # Number of jitter test samples
+  packet_loss_probes: 50   # Number of packet loss probes
+  bandwidth_duration: 5.0  # Bandwidth test duration in seconds
+  timeout: 2.0             # General test timeout
+
+# Security Scoring Thresholds
+security:
+  error_threshold: 100     # Network error count threshold
+  drop_threshold: 50       # Packet drop count threshold
+  signal_weak_dbm: -70     # Weak WiFi signal threshold (dBm)
+  latency_high_ms: 200     # High latency threshold (ms)
+  latency_elevated_ms: 100 # Elevated latency threshold (ms)
+  jitter_high_ms: 30       # High jitter threshold (ms)
+  packet_loss_high_pct: 5  # High packet loss percentage
+  packet_loss_moderate_pct: 1  # Moderate packet loss percentage
+
+# Logging Settings
+logging:
+  level: INFO              # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  file: null               # Log file path (null = console only)
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+# Export Settings
+export:
+  output_dir: ./reports    # Default export directory
+  filename_prefix: wifg    # Prefix for export filenames
