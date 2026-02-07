@@ -136,3 +136,5 @@ Thumbs.db
 # Project specific
 *.backup
 /etc/resolv.conf.backup
+logs/
+reports/

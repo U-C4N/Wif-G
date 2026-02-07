@@ -41,8 +41,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         '--export',
-        choices=['json', 'html'],
-        help='Export results to JSON or HTML format'
+        choices=['json', 'html', 'pdf'],
+        help='Export results to JSON, HTML, or PDF format'
     )
     parser.add_argument(
         '--export-dir',
@@ -78,6 +78,11 @@ def parse_args() -> argparse.Namespace:
         '--save',
         action='store_true',
         help='Save scan results to history database'
+    )
+    parser.add_argument(
+        '--interactive', '-i',
+        action='store_true',
+        help='Launch interactive menu mode'
     )
 
     return parser.parse_args()
@@ -167,6 +172,180 @@ def run_full_scan(engine: NetworkAnalyzerEngine, cli: NetworkAnalyzerCLI,
                 pass
 
 
+# ------------------------------------------------------------------ #
+#  Interactive menu mode
+# ------------------------------------------------------------------ #
+def run_interactive_mode(config: dict) -> None:
+    """Launch an interactive arrow-key menu using questionary."""
+    try:
+        import questionary
+        from questionary import Style as QStyle
+    except ImportError:
+        from colorama import Fore
+        print(f"{Fore.RED}Interactive mode requires the 'questionary' package.")
+        print(f"{Fore.YELLOW}Install it with: pip install questionary")
+        sys.exit(1)
+
+    custom_style = QStyle([
+        ('qmark', 'fg:cyan bold'),
+        ('question', 'fg:white bold'),
+        ('answer', 'fg:green bold'),
+        ('pointer', 'fg:cyan bold'),
+        ('highlighted', 'fg:cyan bold'),
+        ('selected', 'fg:green'),
+    ])
+
+    engine = NetworkAnalyzerEngine(config)
+    cli = NetworkAnalyzerCLI(engine)
+    cli.print_banner()
+
+    scan_performed = False
+
+    while True:
+        action = questionary.select(
+            "What would you like to do?",
+            choices=[
+                questionary.Choice("Full Scan            - Complete network analysis", value="full"),
+                questionary.Choice("Select Scan Types    - Choose specific scans", value="select"),
+                questionary.Choice("View Scan History    - Previous scan results", value="history"),
+                questionary.Choice("Export Report        - Save results to file", value="export"),
+                questionary.Choice("Optimize Network     - Apply optimizations", value="optimize"),
+                questionary.Choice("Exit", value="exit"),
+            ],
+            style=custom_style,
+        ).ask()
+
+        if action is None or action == "exit":
+            from colorama import Fore
+            print(f"\n{Fore.CYAN}Goodbye!")
+            break
+
+        if action == "full":
+            run_full_scan(engine, cli, optimize=False)
+            scan_performed = True
+
+        elif action == "select":
+            scan_types = questionary.checkbox(
+                "Select scan types to run:",
+                choices=[
+                    questionary.Choice("Network Info", value="network"),
+                    questionary.Choice("DNS Analysis", value="dns"),
+                    questionary.Choice("Performance Tests", value="performance"),
+                    questionary.Choice("Port Scan", value="ports"),
+                    questionary.Choice("Security Analysis", value="security"),
+                ],
+                style=custom_style,
+            ).ask()
+
+            if scan_types:
+                cli.print_banner()
+                needs_network = any(t in scan_types for t in ('ports', 'performance', 'security'))
+
+                if 'network' in scan_types or needs_network:
+                    cli.print_loading("Scanning network")
+                    engine.scan_network()
+                    cli.print_done()
+                    if 'network' in scan_types:
+                        cli.display_network(engine.results.network)
+
+                if 'dns' in scan_types:
+                    cli.print_loading("Analyzing DNS servers")
+                    engine.scan_dns()
+                    cli.print_done()
+                    cli.display_dns(engine.results.dns)
+
+                if 'performance' in scan_types:
+                    cli.print_loading("Running performance tests")
+                    engine.run_performance_tests()
+                    cli.print_done()
+                    cli.display_performance(engine.results.performance)
+
+                if 'ports' in scan_types:
+                    cli.print_loading("Scanning ports")
+                    engine.scan_ports()
+                    cli.print_done()
+                    cli.display_ports(engine.results.ports)
+
+                if 'security' in scan_types:
+                    # Security needs all scans to have been run
+                    if not engine.results.dns:
+                        cli.print_loading("Analyzing DNS servers")
+                        engine.scan_dns()
+                        cli.print_done()
+                    if not engine.results.performance:
+                        cli.print_loading("Running performance tests")
+                        engine.run_performance_tests()
+                        cli.print_done()
+                    if not engine.results.ports:
+                        cli.print_loading("Scanning ports")
+                        engine.scan_ports()
+                        cli.print_done()
+
+                    cli.print_loading("Performing security analysis")
+                    security_data = engine.analyze_security()
+                    cli.print_done()
+                    cli.display_security(security_data)
+
+                scan_performed = True
+
+        elif action == "history":
+            history = ScanHistory()
+            scans = history.list_scans()
+            cli.display_history(scans)
+
+        elif action == "export":
+            if not scan_performed:
+                from colorama import Fore
+                print(f"\n{Fore.YELLOW}No scan data available. Please run a scan first.")
+                continue
+
+            fmt = questionary.select(
+                "Select export format:",
+                choices=[
+                    questionary.Choice("JSON", value="json"),
+                    questionary.Choice("HTML", value="html"),
+                    questionary.Choice("PDF", value="pdf"),
+                ],
+                style=custom_style,
+            ).ask()
+
+            if fmt:
+                filepath = engine.export_report(format=fmt)
+                from colorama import Fore
+                print(f"\n{Fore.GREEN}Report exported to: {filepath}")
+
+            save = questionary.confirm(
+                "Save scan to history database?",
+                default=False,
+                style=custom_style,
+            ).ask()
+            if save:
+                scan_id = engine.save_to_history()
+                from colorama import Fore
+                print(f"\n{Fore.GREEN}Scan saved to history (ID: {scan_id})")
+
+        elif action == "optimize":
+            if not scan_performed or not engine.results.security:
+                from colorama import Fore
+                print(f"\n{Fore.YELLOW}Please run a full or security scan first.")
+                continue
+
+            opt_data = engine.get_optimization_plan()
+            has_optimizations = cli.display_optimization_plan(opt_data)
+
+            if has_optimizations:
+                apply = questionary.confirm(
+                    "Apply automatic optimizations?",
+                    default=False,
+                    style=custom_style,
+                ).ask()
+                if apply:
+                    results = engine.apply_optimizations()
+                    cli.display_optimizations_applied(results)
+
+        print()  # spacing between menu iterations
+
+
 def main():
     args = parse_args()
     config = load_config(args.config)
@@ -178,6 +357,11 @@ def main():
     logger = logging.getLogger(__name__)
 
     try:
+        # Interactive mode
+        if args.interactive:
+            run_interactive_mode(config)
+            return
+
         # Show history
         if args.history:
             engine = NetworkAnalyzerEngine(config)

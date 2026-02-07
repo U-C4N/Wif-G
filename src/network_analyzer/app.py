@@ -250,6 +250,8 @@ class NetworkAnalyzerEngine:
 
         if format == 'html':
             return exporter.export_html()
+        elif format == 'pdf':
+            return exporter.export_pdf()
         else:
             return exporter.export_json()
 
